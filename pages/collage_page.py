@@ -15,11 +15,11 @@ DEFAULT_PAPER_OPTIONS = [
     {"name": "A4", "paper_width": 210, "paper_height": 297},
 ]
 
-FIRST_COLUMN_X = 10
+FIRST_COLUMN_X = 0
 SECOND_COLUMN_X = 200
 THIRD_COLUMN_X = 500
 
-FIRST_ROW_Y = 5
+FIRST_ROW_Y = 10
 
 
 class CollagePage(ttk.Frame):
@@ -36,11 +36,14 @@ class CollagePage(ttk.Frame):
         self.photo_frame.place(x=FIRST_COLUMN_X, y=FIRST_ROW_Y)
 
         self.open_photo_button = ttk.Button(
-            self.photo_frame, text="打开照片", command=self.open_photo, style="Accent.TButton"
+            self.photo_frame,
+            text="打开照片",
+            command=self.open_photo,
+            style="Accent.TButton",
         )
-        self.open_photo_button.grid(row=0, column=0)
+        self.open_photo_button.grid(row=0, column=0, padx=50)
         self.photo_label = ttk.Label(self.photo_frame, text="照片预览", font=LABEL_FONT)
-        self.photo_label.grid(row=1, column=0)
+        self.photo_label.grid(row=1, column=0, pady=75)
 
         self.photo_size_frame = ttk.Frame(self)
         self.photo_size_frame.place(x=SECOND_COLUMN_X, y=FIRST_ROW_Y)
@@ -49,6 +52,17 @@ class CollagePage(ttk.Frame):
             self.photo_size_frame, text="照片尺寸:", anchor="w", font=LABEL_FONT
         )
         self.photo_size_label.grid(row=0, column=0, sticky="w")
+
+        self.photo_size_combobox = ttk.Combobox(
+            self.photo_size_frame, width=15, state="readonly"
+        )
+        self.photo_size_combobox["values"] = [
+            option["name"] for option in DEFAULT_PHOTO_OPTIONS
+        ]
+        self.photo_size_combobox.current(0)
+        self.photo_size_combobox.bind("<<ComboboxSelected>>", self.update_photo_size)
+        self.photo_size_combobox.grid(row=0, column=1, sticky="w")
+
         self.photo_width_label = ttk.Label(
             self.photo_size_frame, text="照片宽度(mm):", anchor="w", font=LABEL_FONT
         )
@@ -73,15 +87,6 @@ class CollagePage(ttk.Frame):
         self.photo_height_entry.insert(0, 35)
         self.photo_height_entry.grid(row=2, column=1, sticky="w")
 
-        self.photo_size_var = tk.StringVar()
-        self.photo_size_var.trace_add("write", self.update_photo_size)
-        self.photo_size_option_menu = ttk.OptionMenu(
-            self.photo_size_frame,
-            self.photo_size_var,
-            *[option["name"] for option in DEFAULT_PHOTO_OPTIONS]
-        )
-        self.photo_size_option_menu.grid(row=0, column=1, sticky="w")
-
         self.paper_size_frame = ttk.Frame(self)
         self.paper_size_frame.place(x=SECOND_COLUMN_X, y=FIRST_ROW_Y + 100)
 
@@ -89,6 +94,16 @@ class CollagePage(ttk.Frame):
             self.paper_size_frame, text="相纸尺寸:", anchor="w", font=LABEL_FONT
         )
         self.paper_size_label.grid(row=0, column=0, sticky="w")
+
+        self.paper_size_combobox = ttk.Combobox(
+            self.paper_size_frame, width=15, state="readonly"
+        )
+        self.paper_size_combobox["values"] = [
+            option["name"] for option in DEFAULT_PAPER_OPTIONS
+        ]
+        self.paper_size_combobox.current(0)
+        self.paper_size_combobox.bind("<<ComboboxSelected>>", self.update_paper_size)
+        self.paper_size_combobox.grid(row=0, column=1, sticky="w")
 
         self.paper_width_label = ttk.Label(
             self.paper_size_frame, text="相纸宽度(mm):", anchor="w", font=LABEL_FONT
@@ -114,15 +129,6 @@ class CollagePage(ttk.Frame):
         self.paper_height_entry.insert(0, 89)
         self.paper_height_entry.grid(row=2, column=1, sticky="w")
 
-        self.paper_size_var = tk.StringVar()
-        self.paper_size_var.trace_add("write", self.update_paper_size)
-        self.paper_size_option_menu = ttk.OptionMenu(
-            self.paper_size_frame,
-            self.paper_size_var,
-            *[option["name"] for option in DEFAULT_PAPER_OPTIONS]
-        )
-        self.paper_size_option_menu.grid(row=0, column=1, sticky="w")
-
         self.margin_frame = ttk.Frame(self)
         self.margin_frame.place(x=SECOND_COLUMN_X, y=FIRST_ROW_Y + 200)
 
@@ -140,15 +146,28 @@ class CollagePage(ttk.Frame):
         self.operations_frame.place(x=SECOND_COLUMN_X, y=FIRST_ROW_Y + 250)
 
         self.preview_button = ttk.Button(
-            self.operations_frame, text="预览拼贴", command=self.preview, style="Accent.TButton"
+            self.operations_frame,
+            text="预览拼贴",
+            command=self.preview,
+            style="Accent.TButton",
         )
         self.preview_button.grid(row=0, column=0, sticky="w")
+
+        self.save_button = ttk.Button(
+            self.operations_frame,
+            text="保存拼贴",
+            command=self.save,
+            style="Accent.TButton",
+        )
+        self.save_button.grid(row=0, column=1, padx=5, sticky="w")
 
         self.preview_frame = ttk.Frame(self)
         self.preview_frame.place(x=THIRD_COLUMN_X, y=FIRST_ROW_Y)
 
         self.preview_label = ttk.Label(self.preview_frame, text="预览", font=LABEL_FONT)
-        self.preview_label.grid(row=0, column=0, sticky="w")
+        self.preview_label.grid(row=0, column=0, padx=150, pady=150, sticky="w")
+
+        self.collage = None
 
     def open_photo(self):
         self.photo_path = filedialog.askopenfilename()
@@ -162,7 +181,7 @@ class CollagePage(ttk.Frame):
     def preview(self):
         # 判断是否选择了照片
         if self.photo_path is None:
-            ttk.messagebox.showerror("错误", "请先打开照片。")
+            tk.messagebox.showerror("错误", "请先打开照片。")
             return
         # 判断是否输入了照片尺寸
         if self.photo_width_entry.get() == "" or self.photo_height_entry.get() == "":
@@ -170,11 +189,11 @@ class CollagePage(ttk.Frame):
             return
         # 判断是否输入了相纸尺寸
         if self.paper_width_entry.get() == "" or self.paper_height_entry.get() == "":
-            ttk.messagebox.showerror("错误", "请输入相纸尺寸。")
+            tk.messagebox.showerror("错误", "请输入相纸尺寸。")
             return
         # 判断是否输入了边距
         if self.margin_entry.get() == "":
-            ttk.messagebox.showerror("错误", "请输入边距。")
+            tk.messagebox.showerror("错误", "请输入边距。")
             return
         photo_size = (
             int(self.photo_width_entry.get()),
@@ -185,26 +204,36 @@ class CollagePage(ttk.Frame):
             int(self.paper_height_entry.get()),
         )
         margin = int(self.margin_entry.get())
-        collage = generate_photo_collage(
+        self.collage = generate_photo_collage(
             self.photo_path, photo_size, paper_size, margin
         )
-        collage_copy = collage.copy()
+        collage_copy = self.collage.copy()
         collage_copy.thumbnail((300, 300))
         collage_image = ImageTk.PhotoImage(collage_copy)
         self.preview_label.config(image=collage_image)
         self.preview_label.image = collage_image
 
-    def update_photo_size(self, *args):
+    def save(self):
+        if self.collage is None:
+            tk.messagebox.showerror("错误", "请先预览拼贴。")
+            return
+        save_path = filedialog.asksaveasfilename(
+            defaultextension="jpg", filetypes=[("JPEG", "*.jpg")]
+        )
+        self.collage.save(save_path)
+        tk.messagebox.showinfo("提示", "保存成功。")
+
+    def update_photo_size(self, event):
         for option in DEFAULT_PHOTO_OPTIONS:
-            if option["name"] == self.photo_size_var.get():
+            if option["name"] == event.widget.get():
                 self.photo_width_entry.delete(0, tk.END)
                 self.photo_width_entry.insert(0, option["photo_width"])
                 self.photo_height_entry.delete(0, tk.END)
                 self.photo_height_entry.insert(0, option["photo_height"])
 
-    def update_paper_size(self, *args):
+    def update_paper_size(self, event):
         for option in DEFAULT_PAPER_OPTIONS:
-            if option["name"] == self.paper_size_var.get():
+            if option["name"] == event.widget.get():
                 self.paper_width_entry.delete(0, tk.END)
                 self.paper_width_entry.insert(0, option["paper_width"])
                 self.paper_height_entry.delete(0, tk.END)
