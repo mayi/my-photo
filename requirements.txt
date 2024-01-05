@@ -2,3 +2,4 @@ pillow
 sv-ttk
 pySmartDL
 streamlit
+st_pages
