@@ -3,8 +3,8 @@ import tkinter as tk
 from tkinter import ttk
 import tkinter.font as tkFont
 import sv_ttk
-from pages.collage_page import CollagePage
-from pages.remove_background_page import RemoveBackgroundPage
+from app_pages.collage_page import CollagePage
+from app_pages.remove_background_page import RemoveBackgroundPage
 
 MODELS_PATH = os.path.join(os.path.dirname(__file__), "models")
 if not os.path.exists(MODELS_PATH):
