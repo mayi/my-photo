@@ -4,3 +4,4 @@ pySmartDL
 streamlit
 st_pages
 rembg
+redis

@@ -1,9 +1,13 @@
+import base64
 import os
 import streamlit as st
+from streamlit.runtime.scriptrunner import get_script_run_ctx
 from PIL import Image
 from pySmartDL import SmartDL
 import time
 from rembg import remove, new_session
+import threading
+from lib.queue import TimePriorityQueue
 
 
 MODELS = [
@@ -57,7 +61,17 @@ class RemoveBackgroundPage:
         self.download_in_progress = False
         self.models_path = os.environ.get("U2NET_HOME")
         self.model = MODELS[0]
+        self.photo_path = None
         self.photo = None
+        self.queue = TimePriorityQueue(
+            name="remove_background",
+            namespace="myphoto",
+            host="localhost",
+            port=6379,
+            db=0,
+        )
+        # 新线程中处理清除队列中超时的任务
+        threading.Thread(target=self.clean_queue, daemon=True).start()
         self.create_widgets()
 
     def download_file(self, url, filename):
@@ -91,10 +105,18 @@ class RemoveBackgroundPage:
         if self.photo is None:
             st.toast("请先上传图片")
             return
+        key = generate_request_key(self.model["name"], self.photo_path)
+        self.queue.enqueue(key)
+
+        while self.queue.peek() != key:
+            index = self.queue.index(key)
+            with st.spinner(f"您的任务在队列中排在第{index+1}位，请稍候......"):
+                time.sleep(2)
         with st.spinner("正在处理图片..."):
             session = new_session(self.model["name"])
             photo_copy = self.photo.copy()
             removed = remove(photo_copy, session=session)
+            self.queue.remove(key)
             st.subheader("预览")
             preview_container = st.container(border=True)
             preview_container.image(removed, width=300)
@@ -118,13 +140,35 @@ class RemoveBackgroundPage:
             self.download_file(self.model["url"], self.model["filename"])
         st.subheader("上传图片")
         photo_container = st.container(border=True)
-        photo_file = photo_container.file_uploader("上传照片", type=["jpg", "png", "jpeg"])
-        if photo_file is not None:
-            self.photo = Image.open(photo_file)
+        self.photo_path = photo_container.file_uploader(
+            "上传照片", type=["jpg", "png", "jpeg"]
+        )
+        if self.photo_path is not None:
+            self.photo = Image.open(self.photo_path)
             photo_container.image(image=self.photo, width=100)
         preview_button = st.button("预览", type="primary")
         if preview_button:
             self.preview()
+
+    # 定期清理队列中存在超过2分钟的任务
+    def clean_queue(self):
+        while True:
+            self.queue.clean(time.time() - 120)
+            time.sleep(60)
+
+def get_session_id():
+    ctx = get_script_run_ctx()
+    session_id = ctx.session_id
+    return session_id
+
+
+def generate_request_key(model_name, photo_path):
+    # 获得SessionId+模型名+图片路径的唯一标识，Base64编码，使用该标识作为redis队列的key，避免重复提交，同时也可以用于查询任务状态
+    session_id = get_session_id()
+    key = f"{session_id}_{model_name}_{photo_path}"
+    # BASE64编码
+    key = base64.b64encode(key.encode()).decode()
+    return key
 
 
 if __name__ == "__main__":
